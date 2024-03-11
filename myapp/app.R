@@ -26,6 +26,24 @@ library(shinydashboard)
 # df_pred <- read.csv2(nom_du_fichier3)
 
 ui <- fluidPage(
+  tags$head(
+    HTML(
+      "
+          <script>
+          var socket_timeout_interval
+          var n = 0
+          $(document).on('shiny:connected', function(event) {
+          socket_timeout_interval = setInterval(function(){
+          Shiny.onInputChange('count', n++)
+          }, 15000)
+          });
+          $(document).on('shiny:disconnected', function(event) {
+          clearInterval(socket_timeout_interval)
+          });
+          </script>
+          "
+    )
+  ),
   useShinyjs(),
   navbarPage(
     theme = shinytheme('cerulean'),
@@ -41,6 +59,7 @@ ui <- fluidPage(
                                                                        "text/comma-separated-values,
                                                                        .csv"))
                                                 ),
+                                                fluidRow(textOutput("keepAlive")),
 
                                                 fluidRow(
                                                   column(4, uiOutput('hipp_id_graph')),
@@ -58,12 +77,17 @@ ui <- fluidPage(
 # Définir le serveur Shiny
 server <- function(input, output, session) {
 
+  output$keepAlive <- renderText({
+    req(input$count)
+    paste("keep alive ", input$count)
+  })
+
   data <- reactive({
     infile <- input$file1
     if (is.null(infile)) {
       return(NULL)
     }
-    read.csv2(nom_du_fichier3, header = TRUE)
+    read.csv2(infile$datapath, header = TRUE)
   })
 
   output$hipp_id_graph <- renderUI({
