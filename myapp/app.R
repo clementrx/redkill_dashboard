@@ -7,14 +7,14 @@ library(shinythemes)
 library(shinydashboard)
 
 # Obtenir la date du jour
-date_du_jour <- "2024-03-09"
+# date_du_jour <- "2024-03-09"
 
 # Créer le nom du fichier avec la date du jour incluse
 # nom_du_fichier3 <- paste0("predictshiny_", date_du_jour, ".rds")
-nom_du_fichier3 <- paste0("predictshiny_", date_du_jour, ".csv")
+# nom_du_fichier3 <- paste0("predictshiny_", date_du_jour, ".csv")
 
 # data <- readRDS(nom_du_fichier3)
-data <- read.csv2(nom_du_fichier3)
+# data <- read.csv2(nom_du_fichier3)
 
 
 # Sauvegarder df_back avec le nom de fichier dynamique
@@ -35,12 +35,12 @@ ui <- fluidPage(
     tabPanel("Graphiques",
              fluidRow(
                div(id = "Sidebar", sidebarPanel(width = 12,
-                                                # fluidRow(
-                                                #   fileInput("file1", "Charger le .csv",
-                                                #             accept = c("text/csv",
-                                                #                        "text/comma-separated-values,
-                                                #                        .csv"))
-                                                # ),
+                                                fluidRow(
+                                                  fileInput("file1", "Charger le .csv",
+                                                            accept = c("text/csv",
+                                                                       "text/comma-separated-values,
+                                                                       .csv"))
+                                                ),
 
                                                 fluidRow(
                                                   column(4, uiOutput('hipp_id_graph')),
@@ -58,12 +58,24 @@ ui <- fluidPage(
 # Définir le serveur Shiny
 server <- function(input, output, session) {
 
+  data <- reactive({
+    infile <- input$file1
+    if (is.null(infile)) {
+      return(NULL)
+    }
+    read.csv2(nom_du_fichier3, header = TRUE)
+  })
+
   output$hipp_id_graph <- renderUI({
+    req(data())
+    data <- data()
     hipp = unique(data$R_name)
     selectInput('hipp_filter_id_graph', 'Réunion', hipp)
   })
 
   output$course_filter_ui_graph <- renderUI({
+    req(data())
+    data <- data()
     selected_hippodrome <- input$hipp_filter_id_graph
     courses <- sort(unique(filter(data, R_name == selected_hippodrome)$C_number))
     selectInput("course_filter_graph", "Choisissez une course", choices = courses)
@@ -71,24 +83,21 @@ server <- function(input, output, session) {
 
   # Fonction de filtrage des données
   filtered_data <- reactive({
-    filter(data, R_name == input$hipp_filter_id_graph, C_number == input$course_filter_graph) %>%
+    req(data())
+    filter(data(), R_name == input$hipp_filter_id_graph, C_number == input$course_filter_graph) %>%
       mutate(across(where(is.numeric), round, 2))
   })
 
   # Réaction pour mettre à jour les données filtrées
   observeEvent(input$update, {
+    req(data())
     filtered_data()
   })
 
   # Mise à jour des choix pour C_number basé sur R_name sélectionné
-  observe({
-    meeting_subset <- data[data$R_name == input$R_name_filter, ]
-    updateSelectInput(session, "C_number_filter", choices = sort(unique(meeting_subset$C_number)))
-  })
-
 
   output$confiance <- renderText({
-
+    req(data())
     filtered <- filtered_data()
 
     if (nrow(filtered) == 0) {
@@ -100,7 +109,7 @@ server <- function(input, output, session) {
 
 
   output$mytable <- renderFormattable({
-
+    req(data())
     filtered <- filtered_data()
 
     if (nrow(filtered) == 0) {
